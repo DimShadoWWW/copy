@@ -28,7 +28,7 @@ func NewFile(path, dir string, data []byte) *File {
 }
 
 // Copy the file content
-func Copy(c *slurp.C) slurp.Stage {
+func Copy(c *slurp.C, keepath bool) slurp.Stage {
 	return func(in <-chan slurp.File, out chan<- slurp.File) {
 
 		fs := []*File{}
@@ -45,19 +45,27 @@ func Copy(c *slurp.C) slurp.Stage {
 				continue
 			}
 
-			name := strings.Join(strings.Split(file.Path, "/")[1:], "/")
-			dir := strings.Split(file.Dir, "/")[0]
+			s, err := file.Stat()
+			if err != nil {
+				c.Error(err)
+				break
+			}
+			name := s.Name()
+			file.Dir = ""
 
-			f := NewFile(name, dir, buf.Bytes())
+			if keepath {
+				name = strings.Join(strings.Split(file.Path, "/")[1:], "/")
+				file.Dir = strings.Split(file.Dir, "/")[0]
+			}
+			f := NewFile(name, file.Dir, buf.Bytes())
 
 			fs = append(fs, f)
 
-			file.Dir = dir
+			file.Path = name
 			file.Reader = buf
 			file.FileInfo.SetSize(int64(buf.Len()))
 
 			out <- file
-
 		}
 	}
 }
